@@ -1,0 +1,11 @@
+flask
+flask-socketio
+pymongo
+yfinance
+pandas
+numpy
+scikit-learn
+prophet
+transformers
+torch
+joblib

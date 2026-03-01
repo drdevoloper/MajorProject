@@ -1,0 +1,479 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #f4f6f9;
+}
+
+.container { 
+    padding: 15px;   /* slightly reduced */
+}
+
+/* ===== HEADER LAYOUT FIX ===== */
+
+.topbar {
+    display: flex;
+    justify-content: space-between;   /* pushes left & right apart */
+    align-items: center;              /* vertical alignment */
+    margin-bottom: 15px;
+}
+
+.left {
+    display: flex;
+    flex-direction: column;
+}
+
+.right {
+    display: flex;
+    align-items: center;
+}
+
+/* ================= METRICS ================= */
+.metrics-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.metric-card {
+    flex: 1;
+    background: white;
+    padding: 10px;
+    height: 60px;              /* smaller */
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+}
+
+.metric-card h2 {
+    margin: 0;
+    font-size: 18px;           /* smaller font */
+}
+
+.highlight { background: #fff3e8; }
+
+.investigate-btn {
+    margin-top: 3px;
+    padding: 5px 10px;
+    font-size: 12px;
+    background: #f97316;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+/* ================= HEATMAP ================= */
+/* ================= HEATMAP ================= */
+.heatmap-panel {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.heatmap-wrapper {
+    overflow: hidden;
+    position: relative;
+}
+
+.heatmap-scroll {
+    display: flex;
+    flex-wrap: nowrap;          /* 🔥 IMPORTANT */
+    gap: 20px;
+    width: max-content;
+    animation: heatScroll 25s linear infinite;
+}
+
+@keyframes heatScroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+}
+
+.heat-tile {
+    min-width: 120px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    flex-shrink: 0;            /* 🔥 VERY IMPORTANT */
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    transition: transform 0.3s ease;
+}
+
+.heat-tile:hover {
+    transform: translateY(-3px);
+}
+
+.heat-green { background: #16a34a; }
+.heat-orange { background: #f59e0b; }
+.heat-red {
+    background: #dc2626;
+    animation: blinkRed 1s infinite;
+}
+
+@keyframes blinkRed {
+    50% { opacity: 0.6; }
+}
+
+/* ================= MAIN GRID ================= */
+.main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 15px;
+    margin-bottom: 100px;
+}
+
+.chart-panel {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    height: 320px;          /* reduced height */
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-panel h3 {
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+
+.chart-panel canvas { 
+    flex: 1; 
+}
+
+/* Volatility */
+.volatility-box {
+    margin-top: 8px;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--border-color);
+    color: var(--text-color);
+    transition: 0.3s ease;
+}
+
+/* ================= ALERT + SENTIMENT ================= */
+.alert-panel,
+.sentiment-panel {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    min-height: 220px;
+}
+
+/* Give chart proper height */
+.sentiment-panel canvas {
+    height: 180px !important;
+    width: 100% !important;
+}
+
+.alert-panel h3,
+.sentiment-panel h3 {
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+/* ===== ALERT STATUS COLORS ===== */
+
+.alert-panel {
+    position: relative;
+    padding-left: 20px;   /* space for left bar */
+}
+
+/* Common left indicator */
+.alert-panel::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 6px;
+    border-radius: 6px 0 0 6px;
+}
+
+/* Risk Levels */
+.alert-normal::before {
+    background: #16a34a;
+}
+
+.alert-low::before {
+    background: #f59e0b;
+}
+
+.alert-high::before {
+    background: #dc2626;
+}
+
+.bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    align-items: start;   /* 🔥 important change */
+    margin-bottom: 15px;
+}
+
+/* ================= NEWS ================= */
+.news-panel {
+    background: white;
+    padding: 12px;
+    border-radius: 8px;
+    height: 300px;       /* balanced size */
+    overflow-y: auto;    /* scroll inside */
+}
+
+/* ================= RISK TREND ================= */
+.trend-panel {
+    background: var(--card-bg);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    height: 250px;
+}
+
+.trend-panel h3 {
+    font-size: 15px;
+    margin-bottom: 8px;
+}
+
+.trend-panel canvas {
+    height: 200px !important;   /* 🔥 Bigger chart */
+    width: 100% !important;
+}
+
+/* ================= DARK THEME SYSTEM ================= */
+
+:root {
+    --bg-color: #f4f6f9;
+    --card-bg: #ffffff;
+    --text-color: #1f2937;
+    --border-color: #e5e7eb;
+}
+
+body {
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.metric-card,
+.heatmap-panel,
+.chart-panel,
+.alert-panel,
+.sentiment-panel,
+.news-panel,
+.trend-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    transition: 0.3s ease;
+}
+
+/* ===== Dark Mode ===== */
+
+body.dark-theme {
+    --bg-color: #111827;                 /* glossy dark grey */
+    --card-bg: rgba(31, 41, 55, 0.85);    /* glass dark */
+    --text-color: #f3f4f6;
+    --border-color: rgba(255,255,255,0.08);
+}
+
+/* Glass effect in dark */
+body.dark-theme .metric-card,
+body.dark-theme .heatmap-panel,
+body.dark-theme .chart-panel,
+body.dark-theme .alert-panel,
+body.dark-theme .sentiment-panel,
+body.dark-theme .news-panel,
+body.dark-theme .trend-panel {
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+}
+
+body.dark-theme .alert-high::before {
+    box-shadow: 0 0 15px #ff0000;
+}
+
+body.dark-theme .alert-low::before {
+    box-shadow: 0 0 12px #f59e0b;
+}
+
+body.dark-theme .alert-normal::before {
+    box-shadow: 0 0 10px #16a34a;
+}
+
+/* ================= ROUND SLIDER ================= */
+
+.theme-toggle-wrapper {
+    margin-left: 20px;
+}
+
+.theme-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 32px;
+}
+
+.theme-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.theme-switch .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #d1d5db;
+    border-radius: 50px;
+    transition: 0.4s;
+}
+
+.theme-switch .slider:before {
+    position: absolute;
+    content: "";
+    height: 24px;
+    width: 24px;
+    left: 4px;
+    bottom: 4px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.4s;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+}
+
+.theme-switch input:checked + .slider {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+}
+
+.theme-switch input:checked + .slider:before {
+    transform: translateX(28px);
+}
+
+body.dark-theme .volatility-box {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+}   
+
+/* ================= THEME TOGGLE WITH LABELS ================= */
+
+.theme-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Labels */
+.theme-label {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    transition: 0.3s ease;
+    opacity: 0.6;
+}
+
+/* Active label highlight */
+body:not(.dark-theme) .light-label {
+    opacity: 1;
+    color: #f59e0b;
+    transform: scale(1.05);
+}
+
+body.dark-theme .dark-label {
+    opacity: 1;
+    color: #a78bfa;
+    transform: scale(1.05);
+}
+
+/* Smooth glow animation */
+body.dark-theme .dark-label {
+    animation: glowDark 2s infinite alternate;
+}
+
+body:not(.dark-theme) .light-label {
+    animation: glowLight 2s infinite alternate;
+}
+
+@keyframes glowDark {
+    from { text-shadow: 0 0 5px rgba(167,139,250,0.4); }
+    to   { text-shadow: 0 0 15px rgba(167,139,250,0.8); }
+}
+
+@keyframes glowLight {
+    from { text-shadow: 0 0 5px rgba(245,158,11,0.4); }
+    to   { text-shadow: 0 0 15px rgba(245,158,11,0.8); }
+}
+.no-news {
+    padding: 20px;
+    text-align: center;
+    font-weight: 500;
+    opacity: 0.7;
+}
+
+/* Light Mode */
+body:not(.dark-theme) .no-news {
+    color: #6b7280;
+}
+
+/* Dark Mode */
+body.dark-theme .no-news {
+    color: #cbd5e1;
+}
+
+/* ================= DASHBOARD FADE IN ================= */
+
+body {
+    opacity: 0;
+    animation: pageFadeIn 0.8s ease forwards;
+}
+
+@keyframes pageFadeIn {
+    to {
+        opacity: 1;
+    }
+}
+
+/* ================= PANEL REVEAL ANIMATION ================= */
+
+.reveal {
+    opacity: 0;
+    transform: translateY(30px);
+    transition: all 0.7s ease;
+}
+
+.reveal.active {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.metric-card:hover,
+.chart-panel:hover,
+.news-panel:hover,
+.alert-panel:hover,
+.sentiment-panel:hover,
+.trend-panel:hover,
+.heatmap-panel:hover {
+    transform: translateY(-4px);
+    transition: 0.3s ease;
+}
+
+.chart-loading {
+    height: 350px;
+    border-radius: 10px;
+    background: linear-gradient(
+        90deg,
+        rgba(200,200,200,0.1) 25%,
+        rgba(200,200,200,0.2) 50%,
+        rgba(200,200,200,0.1) 75%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
