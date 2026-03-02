@@ -7,6 +7,9 @@ from sklearn.preprocessing import MinMaxScaler
 MODEL_DIR = "models/lstm"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("LSTM using device:", device)
+
 
 class LSTMModel(nn.Module):
 
@@ -64,10 +67,10 @@ def train_lstm(df, symbol, epochs=30, seq_len=20):
 
     X, y = create_sequences(scaled, seq_len)
 
-    X = torch.tensor(X, dtype=torch.float32)
-    y = torch.tensor(y, dtype=torch.float32)
+    X = torch.tensor(X, dtype=torch.float32).to(device)
+    y = torch.tensor(y, dtype=torch.float32).to(device)
 
-    model = LSTMModel()
+    model = LSTMModel().to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     criterion = nn.MSELoss()
@@ -96,8 +99,14 @@ def train_lstm(df, symbol, epochs=30, seq_len=20):
 # -----------------------------------------------------
 def load_lstm(symbol):
 
-    model = LSTMModel()
-    model.load_state_dict(torch.load(f"{MODEL_DIR}/{symbol}.pt"))
+    path = f"{MODEL_DIR}/{symbol}.pt"
+
+    model = LSTMModel().to(device)
+
+    model.load_state_dict(
+        torch.load(path, map_location=device)
+    )
+
     model.eval()
 
     return model
@@ -114,12 +123,17 @@ def predict_lstm(model, df, symbol, seq_len=20):
     scaled = scaler.fit_transform(close_prices)
 
     last_seq = scaled[-seq_len:]
-    X = torch.tensor([last_seq], dtype=torch.float32)
+
+    X = torch.tensor([last_seq], dtype=torch.float32).to(device)
 
     with torch.no_grad():
-        pred_scaled = model(X).item()
+        with torch.cuda.amp.autocast():
+            pred_scaled = model(X)
 
-    # Inverse transform manually
-    pred_actual = scaler.inverse_transform([[pred_scaled]])[0][0]
+    pred_scaled = pred_scaled.cpu().numpy()[0][0]
+
+    pred_actual = scaler.inverse_transform(
+        [[pred_scaled]]
+    )[0][0]
 
     return float(pred_actual)

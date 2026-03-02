@@ -1,5 +1,9 @@
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, render_template
 from flask_socketio import SocketIO
+from threading import Thread
+import time
+import datetime
+import numpy as np
 
 from preprocess.stock_data import fetch_and_store_stock, load_stock_from_db
 from preprocess.feature_engineering import create_features, fit_scaler
@@ -8,14 +12,18 @@ from preprocess.news_data import get_news
 from ml.anomaly_model import train_anomaly, anomaly_probability
 from ml.lstm_model import train_lstm, load_lstm, predict_lstm
 from ml.bert_model import FinBERT
-from ml.risk_engine import train_risk_model, load_risk_model, calculate_risk
+from ml.risk_engine import train_risk_model, load_risk_model
 from ml.evaluation import evaluate_model
 
 from config import SYMBOLS
 from database.mongo import logs
 
-import numpy as np
-import datetime
+import torch
+torch.backends.cudnn.benchmark = True
+
+# ==========================================================
+# APP INIT
+# ==========================================================
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -27,23 +35,26 @@ scalers = {}
 lstm_models = {}
 risk_model = None
 
-# 🔥 NEW: Heatmap cache (instant response)
+# ==========================================================
+# GLOBAL CACHES
+# ==========================================================
+
+dashboard_cache = {}
 heatmap_cache = {}
 
-
 # ==========================================================
-# 1️⃣ INITIAL DATA FETCH (ONLY ONCE)
+# INITIAL DATA FETCH
 # ==========================================================
 
 def initialize_data():
-    print("📥 Fetching and storing stock data...")
+    print("📥 Fetching stock data...")
     for symbol in SYMBOLS:
         fetch_and_store_stock(symbol)
-    print("✅ Stock data stored in MongoDB")
+    print("✅ Stock data ready")
 
 
 # ==========================================================
-# 2️⃣ TRAIN BASE MODELS
+# TRAIN BASE MODELS
 # ==========================================================
 
 def train_all():
@@ -52,9 +63,7 @@ def train_all():
     for symbol in SYMBOLS:
 
         df = load_stock_from_db(symbol)
-
         if df.empty:
-            print(f"⚠ No DB data for {symbol}")
             continue
 
         X = create_features(df, symbol=symbol, store=True)
@@ -63,7 +72,6 @@ def train_all():
         scalers[symbol] = scaler
 
         X_scaled = scaler.transform(X)
-
         models[symbol] = train_anomaly(X_scaled, symbol)
 
         train_lstm(X, symbol)
@@ -73,7 +81,7 @@ def train_all():
 
 
 # ==========================================================
-# 3️⃣ TRAIN RISK MODEL
+# TRAIN RISK MODEL
 # ==========================================================
 
 def train_risk():
@@ -109,92 +117,26 @@ def train_risk():
             sentiment_score = float(result[2])
 
         for prob in anomaly_probs:
-
-            training_data.append([
-                prob,
-                sentiment_score,
-                lstm_deviation
-            ])
-
+            training_data.append([prob, sentiment_score, lstm_deviation])
             labels.append(1 if prob > 0.7 else 0)
 
-    if not training_data:
-        print("⚠ No risk training data")
-        return
-
-    X_train = np.array(training_data)
-    y_train = np.array(labels)
-
-    train_risk_model(X_train, y_train)
+    if training_data:
+        X_train = np.array(training_data)
+        y_train = np.array(labels)
+        train_risk_model(X_train, y_train)
 
     print("✅ Risk model trained")
 
 
 # ==========================================================
-# STARTUP PIPELINE
+# CORE COMPUTE FUNCTION
 # ==========================================================
 
-initialize_data()
-train_all()
-train_risk()
-risk_model = load_risk_model()
-
-
-# ==========================================================
-# HOME
-# ==========================================================
-
-@app.route("/")
-def home():
-    return render_template("index.html")
-
-
-# ==========================================================
-# 🔥 NEW FAST HEATMAP ENDPOINT
-# ==========================================================
-
-@app.route("/api/heatmap")
-def heatmap():
-
-    results = []
-
-    for symbol in SYMBOLS:
-
-        latest = logs.find_one(
-            {"symbol": symbol},
-            sort=[("timestamp", -1)]
-        )
-
-        if latest:
-            results.append({
-                "symbol": symbol,
-                "risk_score": float(latest["risk"])
-            })
-        else:
-            results.append({
-                "symbol": symbol,
-                "risk_score": 0.0
-            })
-
-    return jsonify(results)
-
-
-# ==========================================================
-# DASHBOARD API
-# ==========================================================
-
-@app.route("/api/dashboard")
-def dashboard():
-
-    symbol = request.args.get("symbol", "AAPL")
-
-    if symbol not in models:
-        return jsonify({"error": "Symbol not trained"})
+def compute_symbol(symbol):
 
     df = load_stock_from_db(symbol)
-
     if df.empty:
-        return jsonify({"error": "No data available"})
+        return None
 
     X = create_features(df)
     X_scaled = scalers[symbol].transform(X)
@@ -214,17 +156,11 @@ def dashboard():
         for item in news[:5]:
             result = bert.sentiment(item["title"])
             score = float(result[2])
-
             news_list.append({
                 "title": item["title"],
                 "sentiment": score
             })
-
         sentiment_score = news_list[0]["sentiment"]
-
-    # ----------------------------
-    # Risk Formula
-    # ----------------------------
 
     risk = (
         0.5 * lstm_deviation +
@@ -234,22 +170,7 @@ def dashboard():
 
     risk = min(risk * 10, 10)
 
-    # 🔥 UPDATE HEATMAP CACHE (Instant Next Load)
-    heatmap_cache[symbol] = float(risk)
-
-    # ----------------------------
-    # Evaluation
-    # ----------------------------
-
-    y_true = np.random.randint(0, 2, len(anomaly_probs))
-    y_pred = (anomaly_probs > 0.7).astype(int)
-
-    evaluation = evaluate_model(y_true, y_pred)
-
-    # ----------------------------
-    # Log Risk
-    # ----------------------------
-
+    # Store risk in MongoDB
     logs.insert_one({
         "symbol": symbol,
         "risk": float(risk),
@@ -264,19 +185,78 @@ def dashboard():
 
     risk_values = [float(r["risk"]) for r in risk_history]
 
-    return jsonify({
+    return {
         "symbol": symbol,
         "anomaly_probability": latest_anomaly,
         "risk_score": float(risk),
         "sentiment_score": sentiment_score,
         "lstm_deviation": lstm_deviation,
         "lstm_prediction": lstm_pred,
-        "confusion_matrix": evaluation["confusion_matrix"],
-        "accuracy": evaluation["accuracy"],
         "risk_history": risk_values[::-1],
         "ohlc": df.tail(40).to_dict(orient="records"),
         "news": news_list
-    })
+    }
+
+
+# ==========================================================
+# BACKGROUND ML ENGINE
+# ==========================================================
+
+def background_risk_engine():
+
+    print("🚀 Background risk engine started")
+
+    while True:
+
+        for symbol in SYMBOLS:
+            try:
+                result = compute_symbol(symbol)
+
+                if result:
+                    dashboard_cache[symbol] = result
+                    heatmap_cache[symbol] = result["risk_score"]
+
+            except Exception as e:
+                print("❌ Error computing", symbol, e)
+
+        # Emit full heatmap update
+        socketio.emit("heatmap_update", heatmap_cache)
+
+        print("✅ Cache refreshed")
+        time.sleep(300)   # 🔥 Every 5 minutes
+
+
+# ==========================================================
+# HOME
+# ==========================================================
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+# ==========================================================
+# SOCKET EVENTS
+# ==========================================================
+
+@socketio.on("request_dashboard")
+def handle_dashboard_request(data):
+
+    symbol = data.get("symbol", "AAPL")
+
+    if symbol in dashboard_cache:
+        socketio.emit("dashboard_update",
+                      dashboard_cache[symbol])
+
+
+# ==========================================================
+# STARTUP PIPELINE
+# ==========================================================
+
+initialize_data()
+train_all()
+train_risk()
+risk_model = load_risk_model()
 
 
 # ==========================================================
@@ -284,4 +264,9 @@ def dashboard():
 # ==========================================================
 
 if __name__ == "__main__":
+
+    worker = Thread(target=background_risk_engine)
+    worker.daemon = True
+    worker.start()
+
     socketio.run(app, debug=False, use_reloader=False)
