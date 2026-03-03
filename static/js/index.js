@@ -81,6 +81,9 @@ socket.on("dashboard_update", function(data) {
     document.getElementById("alertSentiment").innerText =
         safe(data.sentiment_score);
 
+    document.getElementById("volatilityValue").innerText =
+        safe(data.volatility) + "%";
+
     updateAlertPanel(data.risk_score);
     updateNews(data.news);
     renderCharts(data);
@@ -144,39 +147,51 @@ function renderCharts(data) {
 
     // ================= PRICE =================
 
-    if (data.ohlc && data.ohlc.length >= 6) {
+    // ================= PRICE (OHLC 4 Lines) =================
 
-        const last6 = data.ohlc.slice(-6);
-        const labels = last6.map(d => d.Date);
-        const close = last6.map(d => Number(d.Close));
+if (data.ohlc && data.ohlc.length >= 6) {
 
-        const ctx = document.getElementById("candleChart");
+    const last6 = data.ohlc.slice(-6);
 
-        if (!priceChart) {
+    const labels = last6.map(d => d.Date);
+    const open = last6.map(d => Number(d.Open));
+    const high = last6.map(d => Number(d.High));
+    const low = last6.map(d => Number(d.Low));
+    const close = last6.map(d => Number(d.Close));
 
-            priceChart = new Chart(ctx, {
-                type: "line",
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: close,
-                        borderColor: "#2563eb",
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
-            });
+    const ctx = document.getElementById("candleChart");
 
-        } else {
+    if (!priceChart) {
 
-            priceChart.data.labels = labels;
-            priceChart.data.datasets[0].data = close;
-            priceChart.update();
-        }
+        priceChart = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: "Open", data: open, borderColor: "#f59e0b" },
+                    { label: "High", data: high, borderColor: "#16a34a" },
+                    { label: "Low", data: low, borderColor: "#dc2626" },
+                    { label: "Close", data: close, borderColor: "#2563eb" }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: "index", intersect: false }
+            }
+        });
+
+    } else {
+
+        priceChart.data.labels = labels;
+        priceChart.data.datasets[0].data = open;
+        priceChart.data.datasets[1].data = high;
+        priceChart.data.datasets[2].data = low;
+        priceChart.data.datasets[3].data = close;
+
+        priceChart.update();
     }
+}
 
     // ================= SENTIMENT =================
 

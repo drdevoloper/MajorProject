@@ -184,16 +184,30 @@ def compute_symbol(symbol):
     )
 
     risk_values = [float(r["risk"]) for r in risk_history]
+    # Calculate daily returns
+    returns = df["Close"].pct_change().dropna()
+
+    # Annualized volatility (simple)
+    volatility = float(returns.std() * np.sqrt(252) * 100)
+
+    # 🔥 FIX: Convert Date column before JSON serialization
+    df_tail = df.tail(40).copy()
+
+    if "Date" in df_tail.columns:
+        df_tail["Date"] = df_tail["Date"].astype(str)
+
+    ohlc_records = df_tail.to_dict(orient="records")
 
     return {
         "symbol": symbol,
         "anomaly_probability": latest_anomaly,
         "risk_score": float(risk),
-        "sentiment_score": sentiment_score,
-        "lstm_deviation": lstm_deviation,
-        "lstm_prediction": lstm_pred,
+        "sentiment_score": float(sentiment_score),
+        "lstm_deviation": float(lstm_deviation),
+        "lstm_prediction": float(lstm_pred),
         "risk_history": risk_values[::-1],
-        "ohlc": df.tail(40).to_dict(orient="records"),
+        "ohlc": ohlc_records,
+        "volatility": volatility,
         "news": news_list
     }
 
@@ -233,6 +247,18 @@ def background_risk_engine():
 @app.route("/")
 def home():
     return render_template("index.html")
+
+@app.route("/api/heatmap")
+def heatmap():
+    data = []
+
+    for symbol, risk in heatmap_cache.items():
+        data.append({
+            "symbol": symbol,
+            "risk_score": float(risk)
+        })
+
+    return data
 
 
 # ==========================================================
